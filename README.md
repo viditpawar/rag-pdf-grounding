@@ -35,10 +35,10 @@ hallucinate.
 
 ## Status
 
-This is being built in stages. Current stage: **core pipeline, no Docker yet.**
+This is being built in stages. Current stage: **core pipeline + watcher + API, no Docker yet.**
 
 - [x] Week 1 — PDF parsing, chunking, embedding, vector store, CLI scripts
-- [ ] Week 2 — Folder watcher (separate service) + FastAPI wrapper
+- [x] Week 2 — Folder watcher (separate service) + FastAPI wrapper
 - [ ] Week 3 — Dockerized: Ollama, Chroma, API, watcher as networked services
 - [ ] Week 4 — Streamlit UI showing answers with cited source chunks
 - [ ] Week 5 — GitHub Actions CI (lint, tests, image build) + Prometheus/Grafana
@@ -51,8 +51,8 @@ This is being built in stages. Current stage: **core pipeline, no Docker yet.**
 | LLM + embeddings | Ollama (`llama3.2:3b` + `nomic-embed-text`) |
 | Vector store | ChromaDB (persistent, local) |
 | PDF parsing | PyMuPDF |
-| Folder watcher | `watchdog` (week 2) |
-| API | FastAPI (week 2) |
+| Folder watcher | `watchdog` |
+| API | FastAPI |
 | UI | Streamlit (week 4) |
 | Orchestration | Docker Compose (week 3) |
 
@@ -83,15 +83,39 @@ python ingest_cli.py data/pdfs/your-file.pdf
 python ask_cli.py "What does the document say about X?"
 ```
 
+### Folder watcher
+
+Watches `WATCH_FOLDER` (default `./data/pdfs`) and ingests any PDF dropped
+into it while the watcher is running.
+
+```bash
+python watcher_cli.py
+```
+
+### API
+
+```bash
+uvicorn api:app --reload
+
+# Ingest a PDF
+curl -F file=@data/pdfs/your-file.pdf http://localhost:8000/ingest
+
+# Ask a question
+curl -X POST http://localhost:8000/ask \
+  -H "Content-Type: application/json" \
+  -d '{"question": "What does the document say about X?"}'
+```
+
 ## Tests
 
 ```bash
 python -m pytest -v
 ```
 
-Tests cover chunking logic, PDF parsing, and the vector store — the parts
-that don't require Ollama to be running. LLM calls are exercised manually
-via the CLI scripts above.
+Tests cover chunking logic, PDF parsing, the vector store, the folder
+watcher, and the API — all with Ollama calls stubbed out, so the suite
+doesn't need Ollama running. LLM calls themselves are exercised manually via
+the CLI scripts and API above.
 
 ## Project layout
 
@@ -103,7 +127,10 @@ ragcore/
   vectorstore.py       # Chroma wrapper (the grounding store)
   ingest.py            # ingestion pipeline
   qa.py                 # retrieval + generation pipeline
+  watcher.py            # folder watcher (auto-ingest on file drop)
 ingest_cli.py           # CLI: ingest PDFs
 ask_cli.py               # CLI: ask questions
+watcher_cli.py            # entrypoint: run the folder watcher
+api.py                     # FastAPI app: /ingest, /ask
 tests/
 ```
