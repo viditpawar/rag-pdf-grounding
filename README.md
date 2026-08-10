@@ -35,11 +35,11 @@ hallucinate.
 
 ## Status
 
-This is being built in stages. Current stage: **core pipeline + watcher + API, no Docker yet.**
+This is being built in stages. Current stage: **fully Dockerized — Ollama, Chroma, API, and watcher run as networked services via Docker Compose.**
 
 - [x] Week 1 — PDF parsing, chunking, embedding, vector store, CLI scripts
 - [x] Week 2 — Folder watcher (separate service) + FastAPI wrapper
-- [ ] Week 3 — Dockerized: Ollama, Chroma, API, watcher as networked services
+- [x] Week 3 — Dockerized: Ollama, Chroma, API, watcher as networked services
 - [ ] Week 4 — Streamlit UI showing answers with cited source chunks
 - [ ] Week 5 — GitHub Actions CI (lint, tests, image build) + Prometheus/Grafana
 - [ ] Week 6 — Docs, demo GIF, polish
@@ -49,16 +49,53 @@ This is being built in stages. Current stage: **core pipeline + watcher + API, n
 | Layer | Choice |
 |---|---|
 | LLM + embeddings | Ollama (`llama3.2:3b` + `nomic-embed-text`) |
-| Vector store | ChromaDB (persistent, local) |
+| Vector store | ChromaDB (server, networked via Docker Compose) |
 | PDF parsing | PyMuPDF |
-| Folder watcher | `watchdog` |
+| Folder watcher | `watchdog` (polling observer) |
 | API | FastAPI |
 | UI | Streamlit (week 4) |
-| Orchestration | Docker Compose (week 3) |
+| Orchestration | Docker Compose |
 
-## Setup (current stage)
+## Running with Docker Compose (recommended)
 
-Requires Python 3.11+ and [Ollama](https://ollama.com) installed and running
+Requires Docker with Compose v2. This brings up all four services -
+`ollama`, `chroma`, `api`, and `watcher` - networked together, plus a
+one-shot `ollama-pull` job that pulls the configured models before
+`api`/`watcher` start.
+
+```bash
+docker compose up -d --build
+
+# Wait for everything to report healthy (first run pulls ~2.3GB of models)
+docker compose ps
+```
+
+```bash
+# Drop a PDF in the watched folder - the watcher container auto-ingests it
+cp your-file.pdf data/pdfs/
+
+# ...or ingest directly through the API
+curl -F file=@data/pdfs/your-file.pdf http://localhost:8000/ingest
+
+# Ask a question
+curl -X POST http://localhost:8000/ask \
+  -H "Content-Type: application/json" \
+  -d '{"question": "What does the document say about X?"}'
+
+docker compose down
+```
+
+Service ports on the host: API on `8000`, Chroma on `8001` (its container
+port `8000` is remapped to avoid colliding with the API), Ollama on
+`11434`. Model weights and Chroma's data persist in named volumes
+(`ollama_data`, `chroma_data`) across restarts; the watched folder is a
+bind mount at `./data/pdfs`, so files dropped there from the host are
+visible to the `watcher` container.
+
+## Local setup (without Docker)
+
+For development and running the test suite without containers. Requires
+Python 3.11+ and [Ollama](https://ollama.com) installed and running
 locally.
 
 ```bash
@@ -69,7 +106,9 @@ ollama pull nomic-embed-text
 # 2. Install Python dependencies
 pip install -r requirements.txt
 
-# 3. Configure (defaults in .env.example already match the models above)
+# 3. Configure (defaults in .env.example already match the models above,
+#    and leave CHROMA_HOST unset so Chroma runs embedded rather than
+#    expecting a networked server)
 cp .env.example .env
 ```
 
@@ -133,4 +172,6 @@ ask_cli.py               # CLI: ask questions
 watcher_cli.py            # entrypoint: run the folder watcher
 api.py                     # FastAPI app: /ingest, /ask
 tests/
+Dockerfile                  # shared image for the api and watcher services
+docker-compose.yml           # ollama, chroma, api, watcher as networked services
 ```
