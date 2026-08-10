@@ -10,7 +10,11 @@ OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_CHAT_MODEL = os.getenv("OLLAMA_CHAT_MODEL", "llama3.2:3b")
 OLLAMA_EMBED_MODEL = os.getenv("OLLAMA_EMBED_MODEL", "nomic-embed-text")
 
-# Vector store (Chroma)
+# Vector store (Chroma). If CHROMA_HOST is set, connect to a Chroma server
+# over HTTP (week 3, Docker Compose); otherwise fall back to an embedded
+# PersistentClient backed by CHROMA_PERSIST_DIR (local/dev, and tests).
+CHROMA_HOST = os.getenv("CHROMA_HOST")
+CHROMA_PORT = int(os.getenv("CHROMA_PORT", "8000"))
 CHROMA_PERSIST_DIR = os.getenv("CHROMA_PERSIST_DIR", "./data/chroma")
 CHROMA_COLLECTION_NAME = os.getenv("CHROMA_COLLECTION_NAME", "pdf_grounding")
 

@@ -11,10 +11,27 @@ import chromadb
 from . import config
 
 
-def get_collection(persist_dir: str | None = None, collection_name: str | None = None):
-    persist_dir = persist_dir or config.CHROMA_PERSIST_DIR
+def get_collection(
+    persist_dir: str | None = None,
+    collection_name: str | None = None,
+    host: str | None = None,
+    port: int | None = None,
+):
+    """Get (or create) the grounding collection.
+
+    Connects to a networked Chroma server when a host is given (explicitly,
+    or via CHROMA_HOST in Docker Compose); otherwise falls back to an
+    embedded PersistentClient on disk, which is what tests use.
+    """
+    host = host if host is not None else config.CHROMA_HOST
     collection_name = collection_name or config.CHROMA_COLLECTION_NAME
-    client = chromadb.PersistentClient(path=persist_dir)
+
+    if host:
+        client = chromadb.HttpClient(host=host, port=port or config.CHROMA_PORT)
+    else:
+        persist_dir = persist_dir or config.CHROMA_PERSIST_DIR
+        client = chromadb.PersistentClient(path=persist_dir)
+
     return client.get_or_create_collection(name=collection_name)
 
 
