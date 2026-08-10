@@ -1,0 +1,15 @@
+venv/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.git/
+.gitignore
+.env
+tests/
+data/pdfs/*
+data/chroma/*
+!data/pdfs/.gitkeep
+!data/chroma/.gitkeep
+README.md
+LICENSE
