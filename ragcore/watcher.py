@@ -11,7 +11,7 @@ import time
 from pathlib import Path
 
 from watchdog.events import FileSystemEventHandler
-from watchdog.observers import Observer
+from watchdog.observers.polling import PollingObserver
 
 from . import config
 from .ingest import ingest_pdf
@@ -73,7 +73,10 @@ def watch_folder(folder: str | None = None) -> None:
     Path(folder).mkdir(parents=True, exist_ok=True)
 
     handler = PDFHandler()
-    observer = Observer()
+    # PollingObserver (not the default inotify-based Observer): bind-mounted
+    # volumes under Docker Desktop don't reliably propagate inotify events
+    # for changes made from the host, so we poll the directory instead.
+    observer = PollingObserver()
     observer.schedule(handler, folder, recursive=False)
     observer.start()
     logger.info("Watching %s for new PDFs (Ctrl+C to stop)", folder)
